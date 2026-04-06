@@ -52,18 +52,25 @@ cd claude-statusline
 ```
 
 The script:
-1. Copies `statusline.sh` to `~/.claude/hooks/statusline.sh`
-2. Adds the `statusLine` entry to `~/.claude/settings.json`
+1. Copies `statusline.sh` to `~/.claude/hooks/claude-usage-status-line.sh`
+2. Adds `statusLine` in `~/.claude/settings.json` only when missing/matching
+3. Refuses to replace an existing `statusLine` unless you pass `--force`
 
 Restart Claude Code to activate.
+
+Use `--force` only if you want to replace an existing custom status line:
+
+```sh
+./install.py --force
+```
 
 ### Manual installation
 
 If you prefer to wire it up yourself:
 
 ```sh
-cp statusline.sh ~/.claude/hooks/statusline.sh
-chmod +x ~/.claude/hooks/statusline.sh
+cp statusline.sh ~/.claude/hooks/claude-usage-status-line.sh
+chmod +x ~/.claude/hooks/claude-usage-status-line.sh
 ```
 
 Add to `~/.claude/settings.json`:
@@ -72,7 +79,7 @@ Add to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "/Users/you/.claude/hooks/statusline.sh"
+    "command": "/Users/you/.claude/hooks/claude-usage-status-line.sh"
   }
 }
 ```
@@ -117,7 +124,7 @@ Claude Code calls the status line script once per render, piping a JSON payload 
 }
 ```
 
-The script parses this with `jq`, queries `git` for branch and dirty state, and prints one or two lines of ANSI-colored output to stdout.
+The script parses this with `jq`, queries `git` for branch and dirty state, and prints two or three lines of ANSI-colored output to stdout.
 
 ## Alternatives
 

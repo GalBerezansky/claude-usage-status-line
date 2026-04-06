@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Install claude-statusline into ~/.claude/hooks/ and patch settings.json."""
+"""Install claude-statusline into ~/.claude/hooks/ and patch settings.json safely."""
 
+import argparse
 import json
 import os
 import shutil
@@ -11,7 +12,21 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 CLAUDE_DIR = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
 HOOKS_DIR = CLAUDE_DIR / "hooks"
 SETTINGS = CLAUDE_DIR / "settings.json"
-TARGET = HOOKS_DIR / "statusline.sh"
+DEFAULT_TARGET_NAME = "claude-usage-status-line.sh"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Install Claude Code status line script.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwriting an existing target script and existing statusLine setting.",
+    )
+    return parser.parse_args()
+
+
+def desired_status_line(target):
+    return {"type": "command", "command": str(target)}
 
 
 def confirm(prompt):
@@ -33,52 +48,105 @@ def load_settings_object():
     return config
 
 
-def plan_install_script():
-    if TARGET.exists():
-        print(f"  ~ overwrite existing {TARGET}")
+def is_same_file(path_a, path_b):
+    try:
+        return path_a.samefile(path_b)
+    except OSError:
+        return False
+
+
+def plan_install_script(source, target, force):
+    if target.exists():
+        if is_same_file(source, target):
+            print(f"  = keep existing {target} (already installed)")
+        elif force:
+            print(f"  ~ overwrite existing {target} (--force)")
+        else:
+            print(f"  ! keep existing {target} (use --force to overwrite)")
     else:
         if not HOOKS_DIR.exists():
             print(f"  + create directory {HOOKS_DIR}")
-        print(f"  + copy statusline.sh → {TARGET}")
+        print(f"  + copy statusline.sh → {target}")
 
 
-def plan_patch_settings():
+def plan_patch_settings(target, force):
+    wanted = desired_status_line(target)
     if not SETTINGS.exists():
         print(f"  + create {SETTINGS} with statusLine entry")
+        print(f"      {json.dumps(wanted)}")
         return
 
     config = load_settings_object()
     existing = config.get("statusLine")
-    if existing:
-        print(f"  ~ replace existing statusLine in {SETTINGS}:")
-        print(f"      was: {json.dumps(existing)}")
-        print(f"      now: {json.dumps({'type': 'command', 'command': str(TARGET)})}")
-    else:
+    if not existing:
         print(f"  + add statusLine entry to {SETTINGS}")
-        print(f"      {json.dumps({'type': 'command', 'command': str(TARGET)})}")
+        print(f"      {json.dumps(wanted)}")
+    elif existing == wanted:
+        print(f"  = keep existing statusLine in {SETTINGS} (already set)")
+    elif force:
+        print(f"  ~ replace existing statusLine in {SETTINGS} (--force):")
+        print(f"      was: {json.dumps(existing)}")
+        print(f"      now: {json.dumps(wanted)}")
+    else:
+        print(f"  ! keep existing statusLine in {SETTINGS} (use --force to replace):")
+        print(f"      existing: {json.dumps(existing)}")
+        print(f"      desired:  {json.dumps(wanted)}")
 
 
-def install_script():
-    source = SCRIPT_DIR / "statusline.sh"
+def ensure_allowed(source, target, force):
+    if target.exists() and not is_same_file(source, target) and not force:
+        print(
+            f"Error: target script exists at {target}. Re-run with --force to overwrite.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if SETTINGS.exists():
+        config = load_settings_object()
+        existing = config.get("statusLine")
+        wanted = desired_status_line(target)
+        if existing and existing != wanted and not force:
+            print(
+                f"Error: {SETTINGS} already has statusLine. Re-run with --force to replace it.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+
+def install_script(source, target, force):
     HOOKS_DIR.mkdir(parents=True, exist_ok=True)
-    if TARGET.exists():
-        try:
-            if source.samefile(TARGET):
-                TARGET.chmod(TARGET.stat().st_mode | 0o111)
-                print(f"Already installed: {TARGET}")
-                return
-        except FileNotFoundError:
-            pass
-    shutil.copy2(source, TARGET)
-    TARGET.chmod(TARGET.stat().st_mode | 0o111)
-    print(f"Installed: {TARGET}")
+    if target.exists():
+        if is_same_file(source, target):
+            target.chmod(target.stat().st_mode | 0o111)
+            print(f"Already installed: {target}")
+            return
+        if not force:
+            print(
+                f"Error: target script exists at {target}. Re-run with --force to overwrite.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    shutil.copy2(source, target)
+    target.chmod(target.stat().st_mode | 0o111)
+    print(f"Installed: {target}")
 
 
-def patch_settings():
+def patch_settings(target, force):
+    wanted = desired_status_line(target)
     indent = 2
     if SETTINGS.exists():
         raw = SETTINGS.read_text()
         config = load_settings_object()
+        existing = config.get("statusLine")
+        if existing == wanted:
+            print(f"Unchanged: {SETTINGS}")
+            return
+        if existing and not force:
+            print(
+                f"Error: {SETTINGS} already has statusLine. Re-run with --force to replace it.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         for line in raw.splitlines():
             stripped = line.lstrip()
             if stripped and line != stripped:
@@ -87,19 +155,24 @@ def patch_settings():
     else:
         config = {}
 
-    config["statusLine"] = {"type": "command", "command": str(TARGET)}
+    config["statusLine"] = wanted
     SETTINGS.write_text(json.dumps(config, indent=indent) + "\n")
     print(f"Updated:   {SETTINGS}")
 
 
 if __name__ == "__main__":
+    args = parse_args()
+    source = SCRIPT_DIR / "statusline.sh"
+    target = HOOKS_DIR / DEFAULT_TARGET_NAME
+
     print("claude-statusline installer\n")
     print("The following changes will be made:")
-    plan_install_script()
-    plan_patch_settings()
+    plan_install_script(source, target, args.force)
+    plan_patch_settings(target, args.force)
+    ensure_allowed(source, target, args.force)
     print()
     confirm("Proceed?")
     print()
-    install_script()
-    patch_settings()
+    install_script(source, target, args.force)
+    patch_settings(target, args.force)
     print("\nDone. Restart Claude Code to see the status line.")

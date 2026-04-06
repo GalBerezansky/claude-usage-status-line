@@ -54,7 +54,8 @@ class InstallerTests(unittest.TestCase):
 
             result = run_installer(config_dir)
             self.assertEqual(result.returncode, 1)
-            self.assertIn("already has statusLine", result.stderr)
+            self.assertIn("keep existing statusLine", result.stdout)
+            self.assertIn("Cannot continue without --force.", result.stdout)
             self.assertFalse((config_dir / "hooks").exists())
             self.assertEqual(json.loads(settings_path.read_text()), original)
 
@@ -105,7 +106,8 @@ class InstallerTests(unittest.TestCase):
 
             result = run_installer(config_dir)
             self.assertEqual(result.returncode, 1)
-            self.assertIn("target script exists", result.stderr)
+            self.assertIn("use --force to overwrite", result.stdout)
+            self.assertIn("Cannot continue without --force.", result.stdout)
             self.assertEqual(target.read_text(), "old-script\n")
 
     def test_same_file_target_is_idempotent(self):

@@ -1,10 +1,11 @@
 # claude-statusline
 
-A rich, information-dense status line for [Claude Code](https://claude.ai/code) — zero runtime dependencies beyond `bash` and `jq`.
+A rich, information-dense status line for [Claude Code](https://claude.ai/code) — zero runtime dependencies beyond `bash`, `jq`, and `python3` (for installer).
 
 ```
-ctx: 12% │ ~/Code/myproject │ claude-sonnet-4-6 │ effort: auto │ main ● 3f │ tokens in: 42.1k out: 8.3k │ +127 -34 │ usage 5h window: 23% (reset at 18:30) 7d: 41%
-  ✔ off-peak now (limits burn slower) │ peak: Mon–Fri 15:00–21:00 IL
+ctx: 12% │ ~/Code/myproject │ claude-sonnet-4-6 │ effort: auto │ main ● 3f │ tokens in: 42.1k out: 8.3k │ +127 -34
+  usage 5h window: 23% (reset at 18:30) 7d: 41%
+  ✔ off-peak now (limits burn slower) │ peak: Mon–Fri 05:00–11:00 PT
 ```
 
 ## Features
@@ -21,7 +22,7 @@ ctx: 12% │ ~/Code/myproject │ claude-sonnet-4-6 │ effort: auto │ main �
 | Lines changed | `+added -removed` across the session |
 | 5h window | API rate-limit usage % for the rolling 5-hour block, with reset time |
 | 7d window | API rate-limit usage % for the rolling 7-day window, with reset time |
-| **Peak/off-peak** | Whether Anthropic's high-traffic window is active *right now* in your timezone — limits burn faster during peak (Mon–Fri 5–11am PT) |
+| **Peak/off-peak** | Whether Anthropic's high-traffic window is active *right now* in PT — limits burn faster during peak (Mon–Fri 5–11am PT) |
 
 The peak/off-peak indicator is the only feature not found in other Claude Code status line tools. Anthropic applies stricter rate limits during US business hours; knowing whether you're in that window helps you pace usage and avoid hitting limits unexpectedly.
 
@@ -37,10 +38,11 @@ The peak/off-peak indicator is the only feature not found in other Claude Code s
 
 - `bash` 3.2+
 - [`jq`](https://stedolan.github.io/jq/) — JSON parsing
+- `python3` — installer (`install.py`)
 
 ```sh
 brew install jq        # macOS
-sudo apt install jq    # Debian/Ubuntu
+sudo apt install jq python3    # Debian/Ubuntu
 ```
 
 ## Installation
@@ -48,17 +50,21 @@ sudo apt install jq    # Debian/Ubuntu
 Quick install (one command):
 
 ```sh
-git clone https://github.com/GalBerezansky/claude-usage-status-line claude-statusline && cd claude-statusline && ./install.py
+git clone https://github.com/GalBerezansky/claude-usage-status-line && cd claude-usage-status-line && ./install.py
 ```
 
 If `statusLine` already exists and you want to replace it:
 ```sh
-git clone https://github.com/GalBerezansky/claude-usage-status-line claude-statusline && cd claude-statusline && ./install.py --force
+git clone https://github.com/GalBerezansky/claude-usage-status-line && cd claude-usage-status-line && ./install.py --force
 ```
 
 If you are already inside the cloned repo:
 ```sh
 ./install.py
+```
+If `./install.py` fails with `permission denied`, run:
+```sh
+python3 install.py
 ```
 
 The script:
@@ -77,13 +83,13 @@ cp statusline.sh ~/.claude/hooks/claude-usage-status-line.sh
 chmod +x ~/.claude/hooks/claude-usage-status-line.sh
 ```
 
-Add to `~/.claude/settings.json`:
+Add to `~/.claude/settings.json` (replace `/Users/your-username` with your actual home directory — run `echo $HOME` to get it):
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "/Users/you/.claude/hooks/claude-usage-status-line.sh"
+    "command": "/Users/your-username/.claude/hooks/claude-usage-status-line.sh"
   }
 }
 ```
@@ -101,16 +107,19 @@ else ctx_color=$RED
 fi
 ```
 
-**Timezone for peak detection** — change `Asia/Jerusalem` to your own timezone:
+**Peak window label/detection** — edit these lines if you want different wording or window:
 ```bash
-peak_start_il=$(TZ='Asia/Jerusalem' date ...)
-peak_end_il=$(TZ='Asia/Jerusalem' date ...)
-...
-day_of_week=$(TZ='Asia/Jerusalem' date +%u)
-hour_il=$(TZ='Asia/Jerusalem' date +%-H)
+day_pt=$(TZ='America/Los_Angeles' date +%u)   # 1=Mon, 7=Sun
+hour_pt=$(TZ='America/Los_Angeles' date +%-H)
+if [ "$day_pt" -ge 6 ] || [ "$hour_pt" -lt 5 ] || [ "$hour_pt" -ge 11 ]; then
+  offpeak_now="..."
+else
+  offpeak_now="..."
+fi
+line3="  ${offpeak_now} │ peak: Mon–Fri 05:00–11:00 PT"
 ```
 
-Replace `Asia/Jerusalem` with your local timezone identifier (e.g. `Europe/London`, `America/New_York`). The peak window itself is always Mon–Fri 5–11am PT — only the display timezone changes.
+By default, the script uses PT (`America/Los_Angeles`) to match Anthropic's documented peak window.
 
 ## How it works
 

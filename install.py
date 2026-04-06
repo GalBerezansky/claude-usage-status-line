@@ -66,7 +66,7 @@ def plan_install_script(source, target, force):
     else:
         if not HOOKS_DIR.exists():
             print(f"  + create directory {HOOKS_DIR}")
-        print(f"  + copy statusline.sh → {target}")
+        print(f"  + would copy statusline.sh → {target}")
 
 
 def plan_patch_settings(target, force):
@@ -93,24 +93,21 @@ def plan_patch_settings(target, force):
         print(f"      desired:  {json.dumps(wanted)}")
 
 
-def ensure_allowed(source, target, force):
-    if target.exists() and not is_same_file(source, target) and not force:
-        print(
-            f"Error: target script exists at {target}. Re-run with --force to overwrite.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def has_blocking_conflicts(source, target, force):
+    if force:
+        return False
+
+    if target.exists() and not is_same_file(source, target):
+        return True
 
     if SETTINGS.exists():
         config = load_settings_object()
         existing = config.get("statusLine")
         wanted = desired_status_line(target)
-        if existing and existing != wanted and not force:
-            print(
-                f"Error: {SETTINGS} already has statusLine. Re-run with --force to replace it.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        if existing and existing != wanted:
+            return True
+
+    return False
 
 
 def install_script(source, target, force):
@@ -166,10 +163,12 @@ if __name__ == "__main__":
     target = HOOKS_DIR / DEFAULT_TARGET_NAME
 
     print("claude-statusline installer\n")
-    print("The following changes will be made:")
+    print("Planned actions:")
     plan_install_script(source, target, args.force)
     plan_patch_settings(target, args.force)
-    ensure_allowed(source, target, args.force)
+    if has_blocking_conflicts(source, target, args.force):
+        print("\nCannot continue without --force.")
+        sys.exit(1)
     print()
     confirm("Proceed?")
     print()

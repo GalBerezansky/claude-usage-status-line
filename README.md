@@ -2,11 +2,7 @@
 
 A rich, information-dense status line for [Claude Code](https://claude.ai/code) — zero runtime dependencies beyond `bash`, `jq`, and `python3` (for installer).
 
-```
-ctx: 12% │ ~/Code/myproject │ claude-sonnet-4-6 │ effort: auto │ main ● 3f │ tokens in: 42.1k out: 8.3k │ +127 -34
-  usage 5h window: 23% (reset at 18:30) 7d: 41%
-  ✔ off-peak now (limits burn slower) │ peak: Mon–Fri 05:00–11:00 PT
-```
+<img src="screenshot.png" width="800" alt="claude-statusline preview">
 
 ## Features
 

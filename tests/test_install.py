@@ -44,6 +44,7 @@ class InstallerTests(unittest.TestCase):
                 settings["statusLine"],
                 {"type": "command", "command": str(target)},
             )
+            self.assertEqual(len(list(config_dir.glob("settings.json.bak.*"))), 0)
 
     def test_existing_status_line_requires_force_and_makes_no_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -58,12 +59,14 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("Cannot continue without --force.", result.stdout)
             self.assertFalse((config_dir / "hooks").exists())
             self.assertEqual(json.loads(settings_path.read_text()), original)
+            self.assertEqual(len(list(config_dir.glob("settings.json.bak.*"))), 0)
 
     def test_force_replaces_existing_status_line(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_dir = Path(tmp)
             settings_path = config_dir / "settings.json"
-            settings_path.write_text(json.dumps({"statusLine": {"type": "command", "command": "/tmp/old.sh"}}))
+            original = {"statusLine": {"type": "command", "command": "/tmp/old.sh"}}
+            settings_path.write_text(json.dumps(original))
 
             result = run_installer(config_dir, "--force")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -74,6 +77,23 @@ class InstallerTests(unittest.TestCase):
                 settings["statusLine"],
                 {"type": "command", "command": str(target)},
             )
+            backups = list(config_dir.glob("settings.json.bak.*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(json.loads(backups[0].read_text()), original)
+
+    def test_existing_settings_without_statusline_gets_backup_before_update(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp)
+            settings_path = config_dir / "settings.json"
+            original = {"env": {"A": "1"}}
+            settings_path.write_text(json.dumps(original) + "\n")
+
+            result = run_installer(config_dir)
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+            backups = list(config_dir.glob("settings.json.bak.*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(json.loads(backups[0].read_text()), original)
 
     def test_invalid_json_settings_fails_cleanly(self):
         with tempfile.TemporaryDirectory() as tmp:

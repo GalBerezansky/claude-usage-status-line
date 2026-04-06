@@ -69,8 +69,9 @@ python3 install.py
 
 The script:
 1. Copies `statusline.sh` to `~/.claude/hooks/claude-usage-status-line.sh`
-2. Adds `statusLine` in `~/.claude/settings.json` only when missing/matching
-3. Refuses to replace an existing `statusLine` unless you pass `--force`
+2. Refuses to replace an existing `statusLine` unless you pass `--force`
+3. Before modifying existing `~/.claude/settings.json`, creates a backup like `settings.json.bak.YYYYMMDD-HHMMSS`
+4. Adds or updates `statusLine` in `~/.claude/settings.json`
 
 Restart Claude Code to activate.
 

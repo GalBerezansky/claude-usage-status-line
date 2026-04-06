@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -79,11 +80,13 @@ def plan_patch_settings(target, force):
     config = load_settings_object()
     existing = config.get("statusLine")
     if not existing:
+        print(f"  + backup existing {SETTINGS} before update")
         print(f"  + add statusLine entry to {SETTINGS}")
         print(f"      {json.dumps(wanted)}")
     elif existing == wanted:
         print(f"  = keep existing statusLine in {SETTINGS} (already set)")
     elif force:
+        print(f"  + backup existing {SETTINGS} before update")
         print(f"  ~ replace existing statusLine in {SETTINGS} (--force):")
         print(f"      was: {json.dumps(existing)}")
         print(f"      now: {json.dumps(wanted)}")
@@ -108,6 +111,17 @@ def has_blocking_conflicts(source, target, force):
             return True
 
     return False
+
+
+def backup_settings(raw_text):
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup = SETTINGS.with_name(f"{SETTINGS.name}.bak.{stamp}")
+    suffix = 1
+    while backup.exists():
+        backup = SETTINGS.with_name(f"{SETTINGS.name}.bak.{stamp}.{suffix}")
+        suffix += 1
+    backup.write_text(raw_text)
+    print(f"Backup:    {backup}")
 
 
 def install_script(source, target, force):
@@ -149,6 +163,7 @@ def patch_settings(target, force):
             if stripped and line != stripped:
                 indent = len(line) - len(stripped)
                 break
+        backup_settings(raw)
     else:
         config = {}
 

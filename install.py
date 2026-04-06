@@ -21,6 +21,18 @@ def confirm(prompt):
         sys.exit(0)
 
 
+def load_settings_object():
+    try:
+        config = json.loads(SETTINGS.read_text())
+    except json.JSONDecodeError as e:
+        print(f"Error: {SETTINGS} is not valid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(config, dict):
+        print(f"Error: {SETTINGS} must contain a JSON object at the top level.", file=sys.stderr)
+        sys.exit(1)
+    return config
+
+
 def plan_install_script():
     if TARGET.exists():
         print(f"  ~ overwrite existing {TARGET}")
@@ -35,7 +47,7 @@ def plan_patch_settings():
         print(f"  + create {SETTINGS} with statusLine entry")
         return
 
-    config = json.loads(SETTINGS.read_text())
+    config = load_settings_object()
     existing = config.get("statusLine")
     if existing:
         print(f"  ~ replace existing statusLine in {SETTINGS}:")
@@ -47,8 +59,17 @@ def plan_patch_settings():
 
 
 def install_script():
+    source = SCRIPT_DIR / "statusline.sh"
     HOOKS_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(SCRIPT_DIR / "statusline.sh", TARGET)
+    if TARGET.exists():
+        try:
+            if source.samefile(TARGET):
+                TARGET.chmod(TARGET.stat().st_mode | 0o111)
+                print(f"Already installed: {TARGET}")
+                return
+        except FileNotFoundError:
+            pass
+    shutil.copy2(source, TARGET)
     TARGET.chmod(TARGET.stat().st_mode | 0o111)
     print(f"Installed: {TARGET}")
 
@@ -57,11 +78,7 @@ def patch_settings():
     indent = 2
     if SETTINGS.exists():
         raw = SETTINGS.read_text()
-        try:
-            config = json.loads(raw)
-        except json.JSONDecodeError as e:
-            print(f"Error: {SETTINGS} is not valid JSON: {e}", file=sys.stderr)
-            sys.exit(1)
+        config = load_settings_object()
         for line in raw.splitlines():
             stripped = line.lstrip()
             if stripped and line != stripped:

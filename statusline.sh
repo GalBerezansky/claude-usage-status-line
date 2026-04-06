@@ -51,17 +51,33 @@ fmt_tok() { awk -v v="$1" 'BEGIN{if(v>=1000000) printf "%.1fM",v/1000000; else i
 in_fmt=$(fmt_tok "$in_tok")
 out_fmt=$(fmt_tok "$out_tok")
 
-rate_color() { if [ "$1" -lt 50 ]; then echo "$GREEN"; elif [ "$1" -lt 80 ]; then echo "$YELLOW"; else echo "$RED"; fi; }
+rate_color() {
+  if [ -z "$1" ]; then
+    echo "$DIM"
+  elif [ "$1" -lt 50 ]; then
+    echo "$GREEN"
+  elif [ "$1" -lt 80 ]; then
+    echo "$YELLOW"
+  else
+    echo "$RED"
+  fi
+}
 section_rate=""
 if [ -n "$rate_5h" ]; then
   r5_color=$(rate_color "$rate_5h")
-  r7_color=$(rate_color "$rate_7d")
+  if [ -n "$rate_7d" ]; then
+    r7_color=$(rate_color "$rate_7d")
+    rate_7d_display="${rate_7d}%"
+  else
+    r7_color="$DIM"
+    rate_7d_display="n/a"
+  fi
   tz_abbr=$(date '+%Z')
   reset_str=""
   [ -n "$rate_5h_time" ] && reset_str=" ${RESET}${DIM}(reset at ${YELLOW}${rate_5h_time} ${tz_abbr}${RESET}${DIM})${RESET}"
   reset_7d_str=""
   [ -n "$rate_7d_time" ] && reset_7d_str=" ${RESET}${DIM}(reset at ${YELLOW}${rate_7d_time} ${tz_abbr}${RESET}${DIM})${RESET}"
-  section_rate=" │ ${BRIGHT_WHITE}usage 5h window: ${RESET}${r5_color}${rate_5h}%${reset_str} ${BRIGHT_WHITE}7d: ${RESET}${r7_color}${rate_7d}%${reset_7d_str}"
+  section_rate="${DIM}  ${BRIGHT_WHITE}usage 5h window: ${RESET}${r5_color}${rate_5h}%${reset_str} ${BRIGHT_WHITE}7d: ${RESET}${r7_color}${rate_7d_display}${reset_7d_str}${RESET}"
 fi
 
 if [ -n "$dirty" ]; then
@@ -80,7 +96,9 @@ else
   offpeak_now="${RED}✘ peak now (limits burn faster)${RESET}"
 fi
 
-line1="${ctx_color}ctx: ${cur}%${RESET} │ ${BOLD_CYAN}${PWD/#$HOME/~}${RESET} │ ${BRIGHT_WHITE}${model}${RESET} │ ${BRIGHT_WHITE}effort:${RESET} ${YELLOW}${effort}${RESET} │ ${branch_color}${branch}${git_dirty}${RESET} │ ${BRIGHT_WHITE}tokens in: ${RESET}${YELLOW}${in_fmt}${RESET} ${BRIGHT_WHITE}out: ${RESET}${YELLOW}${out_fmt}${RESET} │ ${GREEN}+${added}${RESET} ${RED}-${removed}${RESET}${section_rate}"
-line2="${DIM}  ${offpeak_now} ${DIM}│ peak: Mon–Fri 05:00–11:00 PT${RESET}"
+line1="${ctx_color}ctx: ${cur}%${RESET} │ ${BOLD_CYAN}${PWD/#$HOME/~}${RESET} │ ${BRIGHT_WHITE}${model}${RESET} │ ${BRIGHT_WHITE}effort:${RESET} ${YELLOW}${effort}${RESET} │ ${branch_color}${branch}${git_dirty}${RESET} │ ${BRIGHT_WHITE}tokens in: ${RESET}${YELLOW}${in_fmt}${RESET} ${BRIGHT_WHITE}out: ${RESET}${YELLOW}${out_fmt}${RESET} │ ${GREEN}+${added}${RESET} ${RED}-${removed}${RESET}"
+line2="${section_rate}"
+line3="${DIM}  ${offpeak_now} ${DIM}│ peak: Mon–Fri 05:00–11:00 PT${RESET}"
 printf '%s\n' "$line1"
-printf '%s\n' "$line2"
+[ -n "$line2" ] && printf '%s\n' "$line2"
+printf '%s\n' "$line3"

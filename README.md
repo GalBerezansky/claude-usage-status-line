@@ -46,7 +46,7 @@ sudo apt install jq    # Debian/Ubuntu
 ## Installation
 
 ```sh
-git clone https://github.com/yourusername/claude-statusline
+git clone <your-repo-url>
 cd claude-statusline
 ./install.py
 ```

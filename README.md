@@ -48,12 +48,12 @@ sudo apt install jq    # Debian/Ubuntu
 Quick install (one command):
 
 ```sh
-git clone <your-repo-url> claude-statusline && cd claude-statusline && ./install.py
+git clone https://github.com/GalBerezansky/claude-usage-status-line claude-statusline && cd claude-statusline && ./install.py
 ```
 
 If `statusLine` already exists and you want to replace it:
 ```sh
-git clone <your-repo-url> claude-statusline && cd claude-statusline && ./install.py --force
+git clone https://github.com/GalBerezansky/claude-usage-status-line claude-statusline && cd claude-statusline && ./install.py --force
 ```
 
 If you are already inside the cloned repo:

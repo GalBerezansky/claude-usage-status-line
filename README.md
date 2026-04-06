@@ -45,9 +45,19 @@ sudo apt install jq    # Debian/Ubuntu
 
 ## Installation
 
+Quick install (one command):
+
 ```sh
-git clone <your-repo-url>
-cd claude-statusline
+git clone <your-repo-url> claude-statusline && cd claude-statusline && ./install.py
+```
+
+If `statusLine` already exists and you want to replace it:
+```sh
+git clone <your-repo-url> claude-statusline && cd claude-statusline && ./install.py --force
+```
+
+If you are already inside the cloned repo:
+```sh
 ./install.py
 ```
 
@@ -57,12 +67,6 @@ The script:
 3. Refuses to replace an existing `statusLine` unless you pass `--force`
 
 Restart Claude Code to activate.
-
-Use `--force` only if you want to replace an existing custom status line:
-
-```sh
-./install.py --force
-```
 
 ### Manual installation
 

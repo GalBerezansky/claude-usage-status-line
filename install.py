@@ -54,13 +54,24 @@ def install_script():
 
 
 def patch_settings():
+    indent = 2
     if SETTINGS.exists():
-        config = json.loads(SETTINGS.read_text())
+        raw = SETTINGS.read_text()
+        try:
+            config = json.loads(raw)
+        except json.JSONDecodeError as e:
+            print(f"Error: {SETTINGS} is not valid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+        for line in raw.splitlines():
+            stripped = line.lstrip()
+            if stripped and line != stripped:
+                indent = len(line) - len(stripped)
+                break
     else:
         config = {}
 
     config["statusLine"] = {"type": "command", "command": str(TARGET)}
-    SETTINGS.write_text(json.dumps(config, indent=2) + "\n")
+    SETTINGS.write_text(json.dumps(config, indent=indent) + "\n")
     print(f"Updated:   {SETTINGS}")
 
 

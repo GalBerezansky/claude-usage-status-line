@@ -60,6 +60,11 @@ class StatuslineTests(unittest.TestCase):
             env=env,
         )
 
+    def write_caveman_flag(self, value):
+        claude_dir = self.home_dir / ".claude"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+        (claude_dir / ".caveman-active").write_text(value)
+
     def test_full_payload_renders_usage_and_peak_lines(self):
         payload = {
             "context_window": {"used_percentage": 12, "total_input_tokens": 1000, "total_output_tokens": 2000},
@@ -78,6 +83,7 @@ class StatuslineTests(unittest.TestCase):
         self.assertEqual(len(lines), 3)
         self.assertIn("ctx: 12%", lines[0])
         self.assertIn("effort: high", lines[0])
+        self.assertIn("+5 -2", lines[1])
         self.assertIn("usage 5h window: 23%", lines[1])
         self.assertIn("7d: 41%", lines[1])
         self.assertIn("peak: Mon", lines[2])
@@ -103,7 +109,8 @@ class StatuslineTests(unittest.TestCase):
         result = self.run_statusline(payload)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         lines = strip_ansi(result.stdout).splitlines()
-        self.assertEqual(len(lines), 2)
+        self.assertEqual(len(lines), 3)
+        self.assertIn("+1 -2", lines[1])
         self.assertNotIn("usage 5h window", strip_ansi(result.stdout))
 
     def test_dirty_repo_shows_modified_file_count(self):
@@ -146,6 +153,32 @@ class StatuslineTests(unittest.TestCase):
         result = self.run_statusline(payload)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("claude-model-id", strip_ansi(result.stdout))
+
+    def test_caveman_full_badge_when_flag_is_full(self):
+        self.write_caveman_flag("full")
+        payload = {
+            "context_window": {"used_percentage": 8},
+            "model": {"display_name": "sonnet"},
+            "cost": {"total_lines_added": 0, "total_lines_removed": 0},
+        }
+        result = self.run_statusline(payload)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        lines = strip_ansi(result.stdout).splitlines()
+        self.assertIn("[CAVEMAN]", lines[2])
+        self.assertNotIn("[CAVEMAN]", lines[0])
+
+    def test_caveman_mode_badge_is_uppercased(self):
+        self.write_caveman_flag("wenyan-lite")
+        payload = {
+            "context_window": {"used_percentage": 8},
+            "model": {"display_name": "sonnet"},
+            "cost": {"total_lines_added": 0, "total_lines_removed": 0},
+        }
+        result = self.run_statusline(payload)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        lines = strip_ansi(result.stdout).splitlines()
+        self.assertIn("[CAVEMAN:WENYAN-LITE]", lines[2])
+        self.assertNotIn("[CAVEMAN:WENYAN-LITE]", lines[0])
 
 
 if __name__ == "__main__":

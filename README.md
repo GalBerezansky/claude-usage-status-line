@@ -16,6 +16,7 @@ A rich, information-dense status line for [Claude Code](https://claude.ai/code) 
 | Dirty state | `✔` clean or `● Nf` (N modified files) |
 | Tokens | Input and output token counts (formatted: `1.2k`, `3.4M`) |
 | Lines changed | `+added -removed` across the session |
+| Caveman mode | Shows `[CAVEMAN]` or `[CAVEMAN:MODE]` when `~/.claude/.caveman-active` exists |
 | 5h window | API rate-limit usage % for the rolling 5-hour block, with reset time |
 | 7d window | API rate-limit usage % for the rolling 7-day window, with reset time |
 | **Peak/off-peak** | Whether Anthropic's high-traffic window is active *right now* in IDT — limits burn faster during peak (Mon–Fri 15:00-21:00 IDT) |

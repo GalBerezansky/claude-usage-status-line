@@ -87,10 +87,10 @@ else
   git_dirty=" ${GREEN}✔${RESET}"
 fi
 
-# Peak detection: weekdays 5am-11am PT limits burn faster
-day_pt=$(TZ='America/Los_Angeles' date +%u)   # 1=Mon, 7=Sun
-hour_pt=$(TZ='America/Los_Angeles' date +%-H)
-if [ "$day_pt" -ge 6 ] || [ "$hour_pt" -lt 5 ] || [ "$hour_pt" -ge 11 ]; then
+# Peak detection in Israel time (IDT): Mon-Fri 15:00-21:00
+day_idt=$(TZ='Asia/Jerusalem' date +%u)   # 1=Mon, 7=Sun
+hour_idt=$(TZ='Asia/Jerusalem' date +%-H)
+if [ "$day_idt" -ge 6 ] || [ "$hour_idt" -lt 15 ] || [ "$hour_idt" -ge 21 ]; then
   offpeak_now="${GREEN}✔ off-peak now (limits burn slower)${RESET}"
 else
   offpeak_now="${RED}✘ peak now (limits burn faster)${RESET}"
@@ -98,7 +98,7 @@ fi
 
 line1="${ctx_color}ctx: ${cur}%${RESET} │ ${BOLD_CYAN}${PWD/#$HOME/~}${RESET} │ ${BRIGHT_WHITE}${model}${RESET} │ ${BRIGHT_WHITE}effort:${RESET} ${YELLOW}${effort}${RESET} │ ${branch_color}${branch}${git_dirty}${RESET} │ ${BRIGHT_WHITE}tokens in: ${RESET}${YELLOW}${in_fmt}${RESET} ${BRIGHT_WHITE}out: ${RESET}${YELLOW}${out_fmt}${RESET} │ ${GREEN}+${added}${RESET} ${RED}-${removed}${RESET}"
 line2="${section_rate}"
-line3="${DIM}  ${offpeak_now} ${DIM}│ peak: Mon–Fri 05:00–11:00 PT${RESET}"
+line3="${DIM}  ${offpeak_now} ${DIM}│ peak: Mon–Fri 15:00–21:00 IDT${RESET}"
 printf '%s\n' "$line1"
 [ -n "$line2" ] && printf '%s\n' "$line2"
 printf '%s\n' "$line3"

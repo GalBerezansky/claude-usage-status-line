@@ -18,7 +18,7 @@ A rich, information-dense status line for [Claude Code](https://claude.ai/code) 
 | Lines changed | `+added -removed` across the session |
 | 5h window | API rate-limit usage % for the rolling 5-hour block, with reset time |
 | 7d window | API rate-limit usage % for the rolling 7-day window, with reset time |
-| **Peak/off-peak** | Whether Anthropic's high-traffic window is active *right now* in PT — limits burn faster during peak (Mon–Fri 5–11am PT) |
+| **Peak/off-peak** | Whether Anthropic's high-traffic window is active *right now* in IDT — limits burn faster during peak (Mon–Fri 15:00-21:00 IDT) |
 
 The peak/off-peak indicator is the only feature not found in other Claude Code status line tools. Anthropic applies stricter rate limits during US business hours; knowing whether you're in that window helps you pace usage and avoid hitting limits unexpectedly.
 
@@ -106,17 +106,15 @@ fi
 
 **Peak window label/detection** — edit these lines if you want different wording or window:
 ```bash
-day_pt=$(TZ='America/Los_Angeles' date +%u)   # 1=Mon, 7=Sun
-hour_pt=$(TZ='America/Los_Angeles' date +%-H)
-if [ "$day_pt" -ge 6 ] || [ "$hour_pt" -lt 5 ] || [ "$hour_pt" -ge 11 ]; then
+day_idt=$(TZ='Asia/Jerusalem' date +%u)   # 1=Mon, 7=Sun
+hour_idt=$(TZ='Asia/Jerusalem' date +%-H)
+if [ "$day_idt" -ge 6 ] || [ "$hour_idt" -lt 15 ] || [ "$hour_idt" -ge 21 ]; then
   offpeak_now="..."
 else
   offpeak_now="..."
 fi
-line3="  ${offpeak_now} │ peak: Mon–Fri 05:00–11:00 PT"
+line3="  ${offpeak_now} │ peak: Mon–Fri 15:00–21:00 IDT"
 ```
-
-By default, the script uses PT (`America/Los_Angeles`) to match Anthropic's documented peak window.
 
 ## How it works
 

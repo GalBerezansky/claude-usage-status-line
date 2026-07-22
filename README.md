@@ -13,9 +13,11 @@ A rich, information-dense status line for [Claude Code](https://claude.ai/code) 
 | Model | Active Claude model name |
 | Effort | Reasoning effort level (`auto`, `low`, `medium`, `high`) |
 | Branch | Git branch — orange on `main`/`master`, cyan otherwise |
-| Dirty state | `✔` clean or `● Nf` (N modified files) |
+| Dirty state | `✔` clean or `● Nf` (N modified files), plus `↑N`/`↓N` ahead/behind upstream and `⚠ Nc` for merge conflicts |
 | Tokens | Input and output token counts (formatted: `1.2k`, `3.4M`) |
-| Lines changed | `+added -removed` across the session |
+| Lines changed | `+added -removed` since the current transcript started (resets across `/clear`, not just process start) |
+| Cost | `$N.NN` spent in the current transcript, once nonzero — green/yellow/red by magnitude |
+| Messages | `msgs: N` — number of prompt/response exchanges in the current transcript |
 | Caveman mode | Shows `[CAVEMAN]` or `[CAVEMAN:MODE]` when `~/.claude/.caveman-active` exists |
 | 5h window | API rate-limit usage % for the rolling 5-hour block, with reset time |
 | 7d window | API rate-limit usage % for the rolling 7-day window, with reset time |
@@ -125,7 +127,8 @@ Claude Code calls the status line script once per render, piping a JSON payload 
 {
   "model": { "display_name": "claude-sonnet-4-6" },
   "context_window": { "used_percentage": 12 },
-  "cost": { "total_lines_added": 127, "total_lines_removed": 34 },
+  "cost": { "total_lines_added": 127, "total_lines_removed": 34, "total_cost_usd": 0.42 },
+  "transcript_path": "/path/to/transcript.jsonl",
   "rate_limits": {
     "five_hour":  { "used_percentage": 23, "resets_at": 1712345678 },
     "seven_day":  { "used_percentage": 41, "resets_at": 1712901234 }
@@ -133,7 +136,9 @@ Claude Code calls the status line script once per render, piping a JSON payload 
 }
 ```
 
-The script parses this with `jq`, queries `git` for branch and dirty state, and prints two or three lines of ANSI-colored output to stdout.
+The script parses this with `jq`, queries `git` for branch, ahead/behind, and dirty state, and prints two or three lines of ANSI-colored output to stdout.
+
+`cost.total_lines_added/removed/total_cost_usd` are process-lifetime cumulative counters from Claude Code, so they don't reset on `/clear`. The script snapshots a per-transcript baseline (keyed by `transcript_path`, cached under `$TMPDIR/claude-statusline`) the first time it sees a transcript, and renders the delta since then.
 
 ## Alternatives
 

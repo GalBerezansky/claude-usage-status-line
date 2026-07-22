@@ -10,12 +10,32 @@ if [ -z "$effort" ]; then
   effort=$(jq -r '.effortLevel // .effort // .reasoningEffort // "auto"' ~/.claude/settings.json 2>/dev/null)
 fi
 [ -z "$effort" ] && effort="auto"
-branch=$(git -C "$PWD" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')
+git_status=$(git -C "$PWD" status --porcelain=v2 --branch 2>/dev/null)
+branch=$(printf '%s\n' "$git_status" | awk '/^# branch.head / {print $3; exit}')
+[ -z "$branch" ] && branch='-'
 added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
 removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
 in_tok=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 out_tok=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
-dirty=$(git -C "$PWD" status --porcelain 2>/dev/null | head -1)
+cost=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
+transcript=$(echo "$input" | jq -r '.transcript_path // ""')
+
+# `/clear` starts a fresh transcript, but cost/lines-added/removed are
+# process-lifetime cumulative counters, so a new transcript would still
+# show the old session's totals. Snapshot a baseline the first time a
+# transcript is seen and render the delta since then.
+if [ -n "$transcript" ]; then
+  state_dir="${TMPDIR:-/tmp}/claude-statusline"
+  mkdir -p "$state_dir" 2>/dev/null
+  state_file="$state_dir/$(printf '%s' "$transcript" | cksum | cut -d' ' -f1)"
+  if [ ! -f "$state_file" ]; then
+    printf '%s %s %s\n' "$added" "$removed" "$cost" > "$state_file"
+  fi
+  read -r base_added base_removed base_cost < "$state_file" 2>/dev/null
+  added=$((added - ${base_added:-0}))
+  removed=$((removed - ${base_removed:-0}))
+  cost=$(awk -v c="$cost" -v b="${base_cost:-0}" 'BEGIN{printf "%.4f", c-b}')
+fi
 rate_5h=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty | floor')
 rate_7d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty | floor')
 rate_5h_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
@@ -93,11 +113,41 @@ if [ -n "$rate_5h" ]; then
   rate_text="${BRIGHT_WHITE}usage 5h window: ${RESET}${r5_color}${rate_5h}%${reset_str} ${BRIGHT_WHITE}7d: ${RESET}${r7_color}${rate_7d_display}${reset_7d_str}${RESET}"
 fi
 
-if [ -n "$dirty" ]; then
-  dirty_files=$(git -C "$PWD" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-  git_dirty=" ${YELLOW}● ${dirty_files}f${RESET}"
+section_msgs=""
+if [ -f "$transcript" ]; then
+  msgs=$(grep -c '"type":"last-prompt"' "$transcript" 2>/dev/null)
+  [ -n "$msgs" ] && [ "$msgs" -gt 0 ] && section_msgs=" │ ${BRIGHT_WHITE}msgs:${RESET} ${YELLOW}${msgs}${RESET}"
+fi
+
+section_cost=""
+if awk "BEGIN{exit !($cost>0)}" 2>/dev/null; then
+  cost_fmt=$(awk -v c="$cost" 'BEGIN{printf "%.2f", c}')
+  if awk -v c="$cost" 'BEGIN{exit !(c>=5)}'; then
+    cost_color=$RED
+  elif awk -v c="$cost" 'BEGIN{exit !(c>=1)}'; then
+    cost_color=$YELLOW
+  else
+    cost_color=$GREEN
+  fi
+  section_cost=" ${DIM}│ ${RESET}${BRIGHT_WHITE}\$${RESET}${cost_color}${cost_fmt}${RESET}"
+fi
+
+ab_str=""
+ab=$(printf '%s\n' "$git_status" | awk '/^# branch.ab / {print $3, $4; exit}')
+ahead=$(printf '%s\n' "$ab" | awk '{print $1}' | tr -d '+')
+behind=$(printf '%s\n' "$ab" | awk '{print $2}' | tr -d '-')
+[ -n "$ahead" ] && [ "$ahead" != "0" ] && ab_str="${ab_str} ${GREEN}↑${ahead}${RESET}"
+[ -n "$behind" ] && [ "$behind" != "0" ] && ab_str="${ab_str} ${RED}↓${behind}${RESET}"
+
+conflicts=$(printf '%s\n' "$git_status" | grep -c '^u ')
+conflict_str=""
+[ "$conflicts" -gt 0 ] 2>/dev/null && conflict_str=" ${RED}⚠ ${conflicts}c${RESET}"
+
+dirty_files=$(printf '%s\n' "$git_status" | grep -c '^[12u?]')
+if [ -n "$git_status" ] && [ "$dirty_files" -gt 0 ]; then
+  git_dirty=" ${YELLOW}● ${dirty_files}f${RESET}${ab_str}${conflict_str}"
 else
-  git_dirty=" ${GREEN}✔${RESET}"
+  git_dirty=" ${GREEN}✔${RESET}${ab_str}${conflict_str}"
 fi
 
 # Peak detection in Israel time (IDT): Mon-Fri 15:00-21:00
@@ -109,8 +159,8 @@ else
   offpeak_now="${RED}✘ peak now (limits burn faster)${RESET}"
 fi
 
-line1="${ctx_color}ctx: ${cur}%${RESET} │ ${BOLD_CYAN}${PWD/#$HOME/~}${RESET} │ ${BRIGHT_WHITE}${model}${RESET} │ ${BRIGHT_WHITE}effort:${RESET} ${YELLOW}${effort}${RESET} │ ${branch_color}${branch}${git_dirty}${RESET} │ ${BRIGHT_WHITE}tokens in: ${RESET}${YELLOW}${in_fmt}${RESET} ${BRIGHT_WHITE}out: ${RESET}${YELLOW}${out_fmt}${RESET}"
-line2="${DIM}  ${GREEN}+${added}${RESET} ${RED}-${removed}${RESET}"
+line1="${ctx_color}ctx: ${cur}%${RESET} │ ${BOLD_CYAN}${PWD/#$HOME/~}${RESET} │ ${BRIGHT_WHITE}${model}${RESET} │ ${BRIGHT_WHITE}effort:${RESET} ${YELLOW}${effort}${RESET}${section_msgs} │ ${branch_color}${branch}${git_dirty}${RESET} │ ${BRIGHT_WHITE}tokens in: ${RESET}${YELLOW}${in_fmt}${RESET} ${BRIGHT_WHITE}out: ${RESET}${YELLOW}${out_fmt}${RESET}"
+line2="${DIM}  ${GREEN}+${added}${RESET} ${RED}-${removed}${RESET}${section_cost}"
 [ -n "$rate_text" ] && line2="${line2} ${DIM}│ ${RESET}${rate_text}"
 line3="${DIM}  ${offpeak_now} ${DIM}│ peak: Mon–Fri 15:00–21:00 IDT${RESET}"
 [ -n "$caveman_badge" ] && line3="${line3} ${DIM}│ ${RESET}${caveman_badge}"
